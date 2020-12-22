@@ -3,7 +3,6 @@ const UserModel = require('../models/user-model');
 
 
 const auth = async (req, res, next) => {
-
     try {
         const token = req.header('Authorization').replace('Bearer ', '');
         const decoded = jwt.verify(token, 'deasamniashvili');
@@ -12,6 +11,8 @@ const auth = async (req, res, next) => {
         if (!user) {
             throw new Error();
         }
+
+        console.log('test');
 
         req.token = token;
         req.user = user
