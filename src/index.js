@@ -24,7 +24,6 @@ app.use(userRouter);
 app.use(taskRouter);
 
 
-
 app.listen(port, () => {
     console.log('Listening to port: ', + port);
 })
