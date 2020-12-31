@@ -10,7 +10,14 @@ const taskSchema = new mongoose.Schema({
     completed: {
         type: Boolean,
         default: false,
+    },
+    owner: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'User',
     }
+}, {
+    timestamps: true,
 })
 
 taskSchema.pre('save', async function (next) {
@@ -18,6 +25,6 @@ taskSchema.pre('save', async function (next) {
     next();
 });
 
-const TaskModel = mongoose.model('Task', taskSchema);
+const Task = mongoose.model('Task', taskSchema);
 
-module.exports = TaskModel;
+module.exports = Task;

@@ -1,11 +1,11 @@
 const express = require('express');
-const UserModel = require('../models/user-model');
+const User = require('../models/user-model');
 const userRouter = new express.Router();
 const auth = require('../middleware/auth');
 
 userRouter.post('/users', async (req, res) => {
     try {
-        const user = new UserModel(req.body);
+        const user = new User(req.body);
         const token = await user.generateWebToken();
 
         await user.save()
@@ -24,7 +24,7 @@ userRouter.post('/users', async (req, res) => {
 
 userRouter.get('/users', async (req, res) => {
     try {
-        const users = await UserModel.find({})
+        const users = await User.find({})
         res.send(users)
     } catch (err) {
         res.status(500).send(err)
@@ -37,36 +37,7 @@ userRouter.get('/users/profile', auth, async (req, res) => {
     res.send(req.user);
 })
 
-userRouter.get('/users/:id', async (req, res) => {
-    const _id = req.params.id;
-
-    try {
-        const user = await UserModel.findById(_id);
-        if (!user) {
-            return res.status(404).send('User not found.');
-        }
-        res.send(user);
-
-    } catch (err) {
-        res.status(400).send(err)
-    }
-
-    // User.findById(_id)
-    //     .then((user) => {
-    //         if (!user) {
-    //             return res.status(404).send();
-    //         }
-    //         res.send(user);
-    //     })
-    //     .catch((err) => {
-    //         res.status(500).send(err)
-    //     })
-})
-
-
-
-userRouter.patch('/users/:id', async (req, res) => {
-    const _id = req.params.id;
+userRouter.patch('/users/profile', auth, async (req, res) => {
 
     const requestedUpdates = Object.keys(req.body);
     const validUpdates = ['name', 'age', 'password'];
@@ -78,13 +49,11 @@ userRouter.patch('/users/:id', async (req, res) => {
     }
 
     try {
-        const user = await UserModel.findById(_id);
+        // const user = await User.findById(req.user._id);
+        const { user } = req;
         requestedUpdates.forEach(update => user[update] = req.body[update]);
-        await user.save();
 
-        if (!user) {
-            return res.status(404).send('User to update not found.');
-        }
+        await user.save();
         res.send(user);
 
     } catch (err) {
@@ -93,25 +62,24 @@ userRouter.patch('/users/:id', async (req, res) => {
 })
 
 
-userRouter.delete('/users/:id', async (req, res) => {
-    const _id = req.params.id;
+userRouter.delete('/users/profile', auth, async (req, res) => {
 
+    console.log('req.user', req.user);
     try {
-        const user = await UserModel.findByIdAndDelete(_id);
-        if (!user) {
-            return res.status(404).send('User not found.');
-        }
 
-        res.send(user);
+        await req.user.remove();
+        console.log('users/profile delete', req.user);
+
+        res.send('deleted');
 
     } catch (err) {
-        res.status(400).send(err)
+        res.status(500).send(err)
     }
 });
 
 userRouter.post('/users/login', async (req, res) => {
     try {
-        const user = await UserModel.findUserByCredentials(req.body.email, req.body.password);
+        const user = await User.findUserByCredentials(req.body.email, req.body.password);
         const token = await user.generateWebToken();
         res.send({ user, token });
 
