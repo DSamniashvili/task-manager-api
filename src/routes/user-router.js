@@ -4,6 +4,111 @@ const userRouter = new express.Router();
 const auth = require('../middleware/auth');
 const multer = require('multer');
 const sharp = require('sharp');
+const { sendWelcomeMessage, sendGoodByeMessage } = require('../emails/account');
+
+userRouter.post('/users', async (req, res) => {
+    try {
+        const user = new User(req.body);
+        const token = await user.generateWebToken();
+
+        sendWelcomeMessage(user.email, user.name);
+
+        await user.save()
+        res.status(201).send({ user, token })
+
+    } catch (e) {
+        res.status(404).send(e)
+    };
+})
+
+
+userRouter.get('/users', async (req, res) => {
+    try {
+        const users = await User.find({})
+        res.send(users)
+    } catch (err) {
+        res.status(500).send(err)
+    }
+})
+
+
+userRouter.get('/users/profile', auth, async (req, res) => {
+    res.send(req.user);
+})
+
+userRouter.patch('/users/profile', auth, async (req, res) => {
+
+    const requestedUpdates = Object.keys(req.body);
+    const validUpdates = ['name', 'age', 'password'];
+
+    const isValidUpdateRequest = requestedUpdates.every(update => validUpdates.includes(update));
+
+    if (!isValidUpdateRequest) {
+        return res.status(400).send('Bad update request');
+    }
+
+    try {
+        const { user } = req;
+        requestedUpdates.forEach(update => user[update] = req.body[update]);
+
+        await user.save();
+        res.send(user);
+
+    } catch (err) {
+        res.status(400).send(err)
+    }
+})
+
+
+userRouter.delete('/users/profile', auth, async (req, res) => {
+
+    try {
+        await req.user.remove();
+        sendGoodByeMessage(req.user.email, req.user.name);
+
+        res.send('deleted');
+
+    } catch (err) {
+        res.status(500).send(err)
+    }
+});
+
+userRouter.post('/users/login', async (req, res) => {
+    try {
+        const user = await User.findUserByCredentials(req.body.email, req.body.password);
+        const token = await user.generateWebToken();
+        res.send({ user, token });
+
+    } catch (e) {
+        return res.status(400).send('User authentication failed.');
+    }
+})
+
+userRouter.post('/users/logout', auth, async (req, res) => {
+    try {
+        req.user.tokens = req.user.tokens.filter((token) => {
+            return token.token !== req.token
+        });
+
+        res.send();
+        await req.user.save();
+
+    } catch (error) {
+        return res.status(400).send('Could not logout.');
+    }
+})
+
+userRouter.post('/users/logoutAll', auth, async (req, res) => {
+    try {
+        req.user.tokens = [];
+        res.status(200).send('Logged out of all devices');
+        await req.user.save();
+
+    } catch (error) {
+        return res.status(500).send('Could not logout from all devices.');
+    }
+})
+
 
 const upload = multer({
     limits: {
@@ -67,107 +172,5 @@ userRouter.get('/users/:id/avatar', async (req, res) => {
         res.status(500).send(err)
     }
 });
-
-userRouter.post('/users', async (req, res) => {
-    try {
-        const user = new User(req.body);
-        const token = await user.generateWebToken();
-
-        await user.save()
-        res.status(201).send({ user, token })
-
-    } catch (e) {
-        res.status(404).send(e)
-    };
-})
-
-
-userRouter.get('/users', async (req, res) => {
-    try {
-        const users = await User.find({})
-        res.send(users)
-    } catch (err) {
-        res.status(500).send(err)
-    }
-})
-
-
-
-userRouter.get('/users/profile', auth, async (req, res) => {
-    res.send(req.user);
-})
-
-userRouter.patch('/users/profile', auth, async (req, res) => {
-
-    const requestedUpdates = Object.keys(req.body);
-    const validUpdates = ['name', 'age', 'password'];
-
-    const isValidUpdateRequest = requestedUpdates.every(update => validUpdates.includes(update));
-
-    if (!isValidUpdateRequest) {
-        return res.status(400).send('Bad update request');
-    }
-
-    try {
-        const { user } = req;
-        requestedUpdates.forEach(update => user[update] = req.body[update]);
-
-        await user.save();
-        res.send(user);
-
-    } catch (err) {
-        res.status(400).send(err)
-    }
-})
-
-
-userRouter.delete('/users/profile', auth, async (req, res) => {
-
-    try {
-        await req.user.remove();
-        console.log('users/profile delete', req.user);
-
-        res.send('deleted');
-
-    } catch (err) {
-        res.status(500).send(err)
-    }
-});
-
-userRouter.post('/users/login', async (req, res) => {
-    try {
-        const user = await User.findUserByCredentials(req.body.email, req.body.password);
-        const token = await user.generateWebToken();
-        res.send({ user, token });
-
-    } catch (e) {
-        return res.status(400).send('User authentication failed.');
-    }
-})
-
-userRouter.post('/users/logout', auth, async (req, res) => {
-    try {
-        req.user.tokens = req.user.tokens.filter((token) => {
-            return token.token !== req.token
-        });
-
-        res.send();
-        await req.user.save();
-
-    } catch (error) {
-        return res.status(400).send('Could not logout.');
-    }
-})
-
-userRouter.post('/users/logoutAll', auth, async (req, res) => {
-    try {
-        req.user.tokens = [];
-        res.status(200).send('Logged out of all devices');
-        await req.user.save();
-
-    } catch (error) {
-        return res.status(500).send('Could not logout from all devices.');
-    }
-})
 
 module.exports = userRouter;
